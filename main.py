@@ -14,7 +14,7 @@ ADMIN_ID = int(os.environ.get("ADMIN_ID", 598460565387476992))
 WORKINK_LINK = os.environ.get("WORKINK_LINK", "https://work.ink/1W4t/this-time")
 MONGO_URL = os.environ.get("MONGO_URL")
 # Replace the URL below with your Raw GitHub/Gist link where the obfuscated script is hosted
-SCRIPT_URL = "https://raw.githubusercontent.com/YourUser/Repo/main/script.lua"
+SCRIPT_URL = "https://raw.githubusercontent.com/Bedrock221/vault/refs/heads/main/vault"
 
 # --- DATABASE SETUP ---
 client = MongoClient(MONGO_URL)
