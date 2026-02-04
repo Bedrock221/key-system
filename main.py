@@ -13,13 +13,15 @@ TOKEN = os.environ.get("DISCORD_TOKEN")
 ADMIN_ID = int(os.environ.get("ADMIN_ID", 598460565387476992))
 WORKINK_LINK = os.environ.get("WORKINK_LINK", "https://work.ink/1W4t/this-time")
 MONGO_URL = os.environ.get("MONGO_URL")
+# Replace the URL below with your Raw GitHub/Gist link where the obfuscated script is hosted
+SCRIPT_URL = "https://raw.githubusercontent.com/YourUser/Repo/main/script.lua"
 
 # --- DATABASE SETUP ---
 client = MongoClient(MONGO_URL)
 db = client["KeySystem"]
 keys_col = db["keys"]
 
-# --- FLASK API & DISPENSER ---
+# --- FLASK API ---
 app = Flask(__name__)
 
 @app.route('/')
@@ -28,16 +30,13 @@ def home():
 
 @app.route('/get-key')
 def dispenser():
-    # Referral Security: Ensures they come from Work.ink
     referrer = request.headers.get("Referer", "")
     if "work.ink" not in referrer and "localhost" not in referrer:
          return "<h1>Access Denied</h1><p>Please complete the tasks on Work.ink first.</p>", 403
 
-    # Pull an unactivated key
     key_doc = keys_col.find_one({"status": "unactivated"})
-    
     if not key_doc:
-        return "<h1>Out of Keys!</h1><p>Owner needs to run !add_keys.</p>", 404
+        return "<h1>Out of Keys!</h1><p>The owner needs to run !add_keys in Discord.</p>", 404
     
     html_template = """
     <!DOCTYPE html>
@@ -49,7 +48,7 @@ def dispenser():
             .box { background: #2d2d2d; padding: 40px; border-radius: 15px; display: inline-block; border: 1px solid #444; }
             h1 { color: #5865F2; }
             .key { font-size: 32px; font-weight: bold; background: #111; padding: 20px; border: 2px dashed #5865F2; margin: 20px 0; color: #fff; }
-            .btn { background: #5865F2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+            .btn { background: #5865F2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; text-decoration: none; }
         </style>
     </head>
     <body>
@@ -76,11 +75,9 @@ def verify():
     key = request.args.get('key')
     hwid = request.args.get('hwid')
     if not key or not hwid: return "invalid", 400
-    
     found = keys_col.find_one({"key": key.strip()})
     if found and found["status"] == "active":
         expiry_dt = datetime.datetime.strptime(found["expires"], '%Y-%m-%d %H:%M:%S')
-        # Check if key matches HWID and is not expired
         if datetime.datetime.now() < expiry_dt and found["hwid"] == hwid:
             return "valid", 200
     return "invalid", 403
@@ -111,7 +108,7 @@ class RedeemModal(discord.ui.Modal, title="Redeem Your Key"):
         if not found:
             await interaction.response.send_message("❌ Invalid Key!", ephemeral=True)
         elif found["status"] == "active":
-            await interaction.response.send_message("❌ Key already used by another HWID!", ephemeral=True)
+            await interaction.response.send_message("❌ Key already used!", ephemeral=True)
         else:
             expiry = datetime.datetime.now() + datetime.timedelta(hours=24)
             keys_col.update_one({"key": key_val}, {"$set": {
@@ -120,7 +117,16 @@ class RedeemModal(discord.ui.Modal, title="Redeem Your Key"):
                 "status": "active",
                 "owner_id": interaction.user.id
             }})
-            await interaction.response.send_message(f"✅ Activated! Script will now work for 24h.", ephemeral=True)
+            
+            # THE RESPONSE CONTAINING THE SCRIPT
+            script_payload = f"```lua\ngetgenv().key = \"{key_val}\"\nloadstring(game:HttpGet(\"{SCRIPT_URL}\"))()\n```"
+            
+            embed = discord.Embed(
+                title="✅ Activation Successful",
+                description=f"Your key is now linked to your HWID.\n**Expires:** {expiry.strftime('%Y-%m-%d %H:%M')}\n\n**Copy and paste this into your executor:**",
+                color=0x2ecc71
+            )
+            await interaction.response.send_message(embed=embed, content=script_payload, ephemeral=True)
 
 # --- INTERFACE ---
 class MainMenuView(discord.ui.View):
@@ -128,14 +134,13 @@ class MainMenuView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(discord.ui.Button(label="Free Key", style=discord.ButtonStyle.link, url=WORKINK_LINK))
 
-    # ADDED 'button' parameter here
     @discord.ui.button(label="Redeem Key", style=discord.ButtonStyle.green, emoji="🔑")
     async def redeem_key(self, interaction: discord.Interaction, button: discord.ui.Button):
         grabber = "```lua\nsetclipboard(game:GetService('RbxAnalyticsService'):GetClientId())\nprint('HWID Copied!')\n```"
         embed = discord.Embed(
-            title="Redemption Process",
-            description=f"1. Get your key from the **Free Key** link.\n2. Run this script to copy your HWID:\n{grabber}\n3. Click the button below to enter both.",
-            color=0x2ecc71
+            title="Step 2: Get HWID",
+            description=f"To link your key, you need your HWID.\n\n1. Run this in your executor:\n{grabber}\n2. Once copied, click the button below.",
+            color=0x5865F2
         )
         
         view = discord.ui.View()
@@ -148,13 +153,12 @@ class MainMenuView(discord.ui.View):
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    # ADDED 'button' parameter here
     @discord.ui.button(label="Reset HWID", style=discord.ButtonStyle.danger, emoji="⚙️")
     async def reset_hwid(self, interaction: discord.Interaction, button: discord.ui.Button):
         found = keys_col.find_one({"owner_id": interaction.user.id})
         if found:
             keys_col.update_one({"owner_id": interaction.user.id}, {"$set": {"hwid": None, "status": "unactivated"}})
-            await interaction.response.send_message("✅ HWID Reset! You can redeem it again with a new HWID.", ephemeral=True)
+            await interaction.response.send_message("✅ HWID Reset! You can now redeem again.", ephemeral=True)
         else:
             await interaction.response.send_message("❌ No active key found for your account.", ephemeral=True)
 
@@ -162,11 +166,7 @@ class MainMenuView(discord.ui.View):
 @bot.command()
 async def setup_panel(ctx):
     if ctx.author.id != ADMIN_ID: return
-    embed = discord.Embed(
-        title="AutoFarm Dhc", 
-        description="Manage your keys below\n\n**Status:** Online 🟢\n**Version:** PolSec | v5", 
-        color=0x5865F2
-    )
+    embed = discord.Embed(title="AutoFarm Dhc", description="Manage your keys below\nPolSec | v5", color=0x5865F2)
     await ctx.send(embed=embed, view=MainMenuView())
 
 @bot.command()
@@ -175,7 +175,7 @@ async def add_keys(ctx, amount: int):
     for _ in range(amount):
         k = str(uuid.uuid4())[:8].upper()
         keys_col.insert_one({"key": k, "hwid": None, "expires": None, "status": "unactivated", "owner_id": None})
-    await ctx.send(f"✅ {amount} keys added to the database.")
+    await ctx.send(f"✅ {amount} keys added to pool.")
 
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
