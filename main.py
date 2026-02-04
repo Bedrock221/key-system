@@ -155,13 +155,24 @@ class MainMenuView(discord.ui.View):
 
     @discord.ui.button(label="Reset HWID", style=discord.ButtonStyle.danger, emoji="⚙️")
     async def reset_hwid(self, interaction: discord.Interaction, button: discord.ui.Button):
-        found = keys_col.find_one({"owner_id": interaction.user.id})
+        # Look for the active key owned by this specific Discord user
+        found = keys_col.find_one({"owner_id": interaction.user.id, "status": "active"})
+        
         if found:
-            keys_col.update_one({"owner_id": interaction.user.id}, {"$set": {"hwid": None, "status": "unactivated"}})
-            await interaction.response.send_message("✅ HWID Reset! You can now redeem again.", ephemeral=True)
+            # We reset the key so it's 'unactivated' again, 
+            # allowing the same user (or someone else) to redeem it with a new HWID.
+            keys_col.update_one(
+                {"_id": found["_id"]}, 
+                {"$set": {
+                    "hwid": None, 
+                    "status": "unactivated", 
+                    "owner_id": None,
+                    "expires": None
+                }}
+            )
+            await interaction.response.send_message("✅ **HWID Reset Successful!**\nYou can now use your key again with a new HWID by clicking **Redeem Key**.", ephemeral=True)
         else:
-            await interaction.response.send_message("❌ No active key found for your account.", ephemeral=True)
-
+            await interaction.response.send_message("❌ **Error:** You do not have an active key linked to this Discord account.", ephemeral=True)
 # --- COMMANDS ---
 @bot.command()
 async def setup_panel(ctx):
