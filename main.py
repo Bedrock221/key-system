@@ -177,7 +177,7 @@ class MainMenuView(discord.ui.View):
 @bot.command()
 async def setup_panel(ctx):
     if ctx.author.id != ADMIN_ID: return
-    embed = discord.Embed(title="AutoFarm Dhc", description="Manage your keys below\nPolSec | v5", color=0x5865F2)
+    embed = discord.Embed(title="AutoFarm Dhc", description="Get key now\nSkido Vault Farm | v5", color=0x5865F2)
     await ctx.send(embed=embed, view=MainMenuView())
 
 @bot.command()
