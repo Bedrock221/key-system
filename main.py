@@ -128,9 +128,9 @@ class MainMenuView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(discord.ui.Button(label="Free Key", style=discord.ButtonStyle.link, url=WORKINK_LINK))
 
+    # ADDED 'button' parameter here
     @discord.ui.button(label="Redeem Key", style=discord.ButtonStyle.green, emoji="🔑")
-    async def redeem_key(self, interaction: discord.Interaction):
-        # Instructions for HWID
+    async def redeem_key(self, interaction: discord.Interaction, button: discord.ui.Button):
         grabber = "```lua\nsetclipboard(game:GetService('RbxAnalyticsService'):GetClientId())\nprint('HWID Copied!')\n```"
         embed = discord.Embed(
             title="Redemption Process",
@@ -138,7 +138,6 @@ class MainMenuView(discord.ui.View):
             color=0x2ecc71
         )
         
-        # Sub-view for the modal trigger
         view = discord.ui.View()
         async def open_modal(inter):
             await inter.response.send_modal(RedeemModal())
@@ -149,9 +148,9 @@ class MainMenuView(discord.ui.View):
         
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
+    # ADDED 'button' parameter here
     @discord.ui.button(label="Reset HWID", style=discord.ButtonStyle.danger, emoji="⚙️")
-    async def reset_hwid(self, interaction: discord.Interaction):
-        # Find key owned by this user
+    async def reset_hwid(self, interaction: discord.Interaction, button: discord.ui.Button):
         found = keys_col.find_one({"owner_id": interaction.user.id})
         if found:
             keys_col.update_one({"owner_id": interaction.user.id}, {"$set": {"hwid": None, "status": "unactivated"}})
