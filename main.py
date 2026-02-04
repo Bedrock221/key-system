@@ -101,6 +101,8 @@ class ResetHWIDModal(discord.ui.Modal, title="Reset HWID"):
 class MainMenuView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
+        # We add the Link Button manually here because it doesn't use a decorator
+        self.add_item(discord.ui.Button(label="Free Key", style=discord.ButtonStyle.link, url=WORKINK_LINK))
 
     @discord.ui.button(label="View Script", style=discord.ButtonStyle.blurple, emoji="📜")
     async def view_script(self, interaction: discord.Interaction):
@@ -110,10 +112,6 @@ class MainMenuView(discord.ui.View):
     @discord.ui.button(label="Redeem Key", style=discord.ButtonStyle.green, emoji="🔑")
     async def redeem_key(self, interaction: discord.Interaction):
         await interaction.response.send_modal(RedeemModal())
-
-    @discord.ui.button(label="Free Key", style=discord.ButtonStyle.link, url=WORKINK_LINK)
-    async def free_key(self, interaction: discord.Interaction):
-        pass
 
     @discord.ui.button(label="Reset HWID", style=discord.ButtonStyle.danger, emoji="⚙️")
     async def reset_hwid(self, interaction: discord.Interaction):
